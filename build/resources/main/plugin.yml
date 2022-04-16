@@ -1,0 +1,7 @@
+name: PlayerDataSync
+version: '2.0'
+main: net.brian.playerdatasync.PlayerDataSync
+api-version: 1.16
+commands:
+  configs:
+    usage: /<command>
