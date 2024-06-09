@@ -1,13 +1,10 @@
 # PlayerDataSync
+Saving and syncing PlayerData between server replicas has never been so easy.  
+This plugin automatically handles data races and uses gson to serialize player data.  
 
-This plugin helps handle player data that needs to be stored in the database<br>
-To use this plugin to develope ,you have to depend PlayerDataSync.<br>
-Then you register the table name and playerdata class onEnable.
 
-The plugin uses gson to serialize objects. Be sure to understand how it works.<br>
-There's a interface PostProccessable , it might be useful.
-
-For example you have an status data class<br>
+## QuickStart
+So as example, you have a StatusData class which each player has one.
 
 ```java
 public class StatusData extends PlayerData{
@@ -17,7 +14,7 @@ public class StatusData extends PlayerData{
     }
 }
 ```
-Then you register it by <br>
+Then you register it by 
 
 ```java
 @Override
@@ -25,9 +22,9 @@ public void onEnable(){
     PlayerDataSync.getinstance().register("status",StatusData.class);
 }
 ```
-
-You fetch players data by <br>
+After the player joins the server replica, you can fetch the player's data by. 
 ```java
-PlayerDataSync.getinstance().getData(uuid,StatusData.class);
+PlayerDataSync.getinstance().getData(playerUuid,StatusData.class);
 ```
+
 That's all, pretty simple.
