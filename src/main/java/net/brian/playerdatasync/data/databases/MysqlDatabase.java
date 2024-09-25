@@ -32,11 +32,5 @@ public class MysqlDatabase extends Database {
         hikariConfig.setJdbcUrl(Config.getJdbURL());
 
         ds = new HikariDataSource(hikariConfig);
-
-        try {
-            connection = ds.getConnection();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
     }
 }
