@@ -1,0 +1,25 @@
+# =============================
+# Gradle
+# =============================
+
+# Gradle build directory
+/build/
+
+# Gradle cache
+.gradle/
+
+# Gradle wrapper logs
+.gradle/wrapper/dists/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+
+
+.vscode/
+
+
+.DS_Store
+
+build/libs/*.jar
