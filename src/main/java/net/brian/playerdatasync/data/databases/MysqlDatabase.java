@@ -7,30 +7,20 @@ import net.brian.playerdatasync.Config;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-public class MysqlDatabase extends Database {
+public class MysqlDatabase extends SqlDatabase {
 
-    HikariDataSource ds;
+    final HikariDataSource ds;
 
-    @Override
-    public Connection getConnection() {
-        try {
-            if(connection.isClosed()){
-                connection = ds.getConnection();
-                return connection;
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return connection;
-    }
-
-    @Override
-    void setUp() {
+    public MysqlDatabase() {
         HikariConfig hikariConfig = new HikariConfig();
         hikariConfig.setPassword(Config.getPassword());
         hikariConfig.setUsername(Config.getUsername());
         hikariConfig.setJdbcUrl(Config.getJdbURL());
-
         ds = new HikariDataSource(hikariConfig);
+    }
+
+    @Override
+    public Connection getConnection() throws SQLException {
+        return ds.getConnection();
     }
 }

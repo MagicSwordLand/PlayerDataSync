@@ -4,9 +4,10 @@ import com.google.gson.Gson;
 
 import com.google.gson.GsonBuilder;
 import net.brian.playerdatasync.data.CachedPlayersDatas;
-import net.brian.playerdatasync.data.databases.DatabaseManager;
+import net.brian.playerdatasync.data.databases.Database;
 import net.brian.playerdatasync.data.databases.FileDatabase;
 import net.brian.playerdatasync.data.databases.MysqlDatabase;
+import net.brian.playerdatasync.data.databases.SqlDatabase;
 import net.brian.playerdatasync.data.gson.PostProcessable;
 
 import net.brian.playerdatasync.test.TestService;
@@ -17,6 +18,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.Executor;
 import java.util.logging.Level;
@@ -25,7 +27,7 @@ import java.util.logging.Logger;
 public final class PlayerDataSync extends JavaPlugin {
 
     private CachedPlayersDatas cachedPlayersDatas;
-    private DatabaseManager dbManager;
+    private Database dbManager;
     private static PlayerDataSync instance;
     private static HashMap<Class<?>,Object> typeAdapters;
     private ItemStackSerializer itemStackSerializer;
@@ -70,14 +72,20 @@ public final class PlayerDataSync extends JavaPlugin {
         isDisabling = true;
         cachedPlayersDatas.tableMap.forEach((id, table)->{
             table.cacheData.forEach((uuid,data)->{
-                dbManager.setData(table.getId(),uuid,data);
-                dbManager.setSaved(id,uuid,true);
+                try {
+                    dbManager.setData(table.getId(),uuid,data, true);
+                } catch (Exception ignored) {
+                }
             });
         });
     }
 
     public void register(String id,Class<?> dataClass){
-        dbManager.register(id,dataClass);
+        try {
+            dbManager.register(id,dataClass);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public <T> Optional<T> getData(UUID uuid, Class<T> dataClass){
@@ -98,7 +106,7 @@ public final class PlayerDataSync extends JavaPlugin {
         return instance;
     }
 
-    public DatabaseManager getDbManager(){
+    public Database getDbManager(){
         return dbManager;
     }
 
@@ -127,8 +135,12 @@ public final class PlayerDataSync extends JavaPlugin {
     }
 
     public Connection getConnection(){
-        if(dbManager instanceof MysqlDatabase){
-            return ((MysqlDatabase) dbManager).getConnection();
+        if(dbManager instanceof SqlDatabase){
+            try {
+                ((SqlDatabase) dbManager).getConnection();
+            } catch (SQLException e) {
+                return null;
+            }
         }
         return null;
     }

@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.UUID;
 
-public class FileDatabase extends DatabaseManager {
+public class FileDatabase extends Database {
 
     PlayerDataSync plugin;
 
@@ -28,6 +28,8 @@ public class FileDatabase extends DatabaseManager {
         classMap.put(dataClass,id);
         PlayerDataSync.getInstance().getPlayerDatas().tableMap.put(dataClass,new CachedTable<>(dataClass,id));
     }
+
+
 
     @Override
     public <T> T getData(UUID uuid, Class<T> dataClass) {
@@ -64,7 +66,7 @@ public class FileDatabase extends DatabaseManager {
     }
 
     @Override
-    public void setData(String id, UUID uuid, Object object) {
+    public void setData(String id, UUID uuid, Object object, boolean setComplete) {
         if(object == null) return;
         File file = new File(plugin.getDataFolder()+"/data/"+id+"/"+uuid);
         if(!file.exists()) {
@@ -82,11 +84,12 @@ public class FileDatabase extends DatabaseManager {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        if(setComplete){
+            setSaved(id, uuid, true);
+        }
     }
 
-    @Override
-    public void setSaved(Class<?> dataClass, UUID uuid, boolean saved) {
-        String id = classMap.get(dataClass);
+    public void setSaved(String id, UUID uuid, boolean saved) {
         File file = new File(plugin.getDataFolder()+"/data/"+id+"/"+uuid);
         if(!file.exists()) {
             try {

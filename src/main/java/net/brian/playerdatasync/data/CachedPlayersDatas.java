@@ -1,11 +1,11 @@
 package net.brian.playerdatasync.data;
 
 import net.brian.playerdatasync.PlayerDataSync;
-import net.brian.playerdatasync.data.CachedTable;
 import net.brian.playerdatasync.events.PlayerDataFetchComplete;
-import net.brian.playerdatasync.data.databases.DatabaseManager;
+import net.brian.playerdatasync.data.databases.Database;
 import net.brian.playerdatasync.data.gson.QuitProcessable;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -25,7 +25,7 @@ public class CachedPlayersDatas implements Listener {
     public HashMap<Class<?>, CachedTable<?>> tableMap = new HashMap<>();
 
 
-    private final DatabaseManager database = PlayerDataSync.getInstance().getDbManager();
+    private final Database database = PlayerDataSync.getInstance().getDbManager();
 
     private final List<Player> loaded = new ArrayList<>();
 
@@ -35,11 +35,13 @@ public class CachedPlayersDatas implements Listener {
         UUID uuid = player.getUniqueId();
         CompletableFuture.runAsync(()->{
             tableMap.forEach((dataClass, cachedTable) -> {
-                Object object = database.getData(uuid, dataClass);
-                if(object != null){
-                    database.setSaved(dataClass,uuid,false);
+                Object object;
+                try {
+                    object = database.getData(uuid, dataClass);
                     cachedTable.cache(uuid,object);
                     PlayerDataSync.log("loaded "+dataClass.getName()+" for "+event.getPlayer().getName());
+                } catch (Exception e) {
+                    PlayerDataSync.log(ChatColor.RED+"Could not cache data "+dataClass.getName()+ " for player "+ player.getName());
                 }
             });
         }).thenRun(()->{
@@ -60,13 +62,16 @@ public class CachedPlayersDatas implements Listener {
                 tableMap.forEach((dataClass, cachedTable) -> {
                     Object data = cachedTable.getData(uuid);
                     cachedTable.unregister(uuid);
-                    database.setData(cachedTable.getId(),uuid,data);
-                    database.setSaved(dataClass,uuid,true);
-                    if(data instanceof QuitProcessable){
-                        Bukkit.getScheduler().runTask(PlayerDataSync.getInstance(),()->{
-                            QuitProcessable quitProcessable = (QuitProcessable) data;
-                            quitProcessable.onQuit();
-                        });
+                    try {
+                        database.setData(cachedTable.getId(),uuid,data, true);
+                        if(data instanceof QuitProcessable){
+                            Bukkit.getScheduler().runTask(PlayerDataSync.getInstance(),()->{
+                                QuitProcessable quitProcessable = (QuitProcessable) data;
+                                quitProcessable.onQuit();
+                            });
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
                 });
             });
@@ -74,12 +79,17 @@ public class CachedPlayersDatas implements Listener {
         else{
             tableMap.forEach((dataClass, cachedTable) -> {
                 Object data = cachedTable.getData(uuid);
-                database.setData(cachedTable.getId(),uuid,data);
-                database.setSaved(dataClass,uuid,true);
-                if(data instanceof QuitProcessable){
-                    QuitProcessable quitProcessable = (QuitProcessable) data;
-                    quitProcessable.onQuit();
+
+                try {
+                    database.setData(cachedTable.getId(),uuid,data, true);
+                    if(data instanceof QuitProcessable){
+                        QuitProcessable quitProcessable = (QuitProcessable) data;
+                        quitProcessable.onQuit();
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
+
             });
         }
     }
