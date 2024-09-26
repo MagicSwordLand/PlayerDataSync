@@ -3,10 +3,7 @@ package net.brian.playerdatasync.data.databases;
 import net.brian.playerdatasync.PlayerDataSync;
 import net.brian.playerdatasync.data.PlayerData;
 import net.brian.playerdatasync.data.CachedTable;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 
-import java.lang.reflect.InvocationTargetException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -52,7 +49,7 @@ public abstract class SqlDatabase extends Database {
                         if (!resultSet.next()) {
                             break;
                         }
-                        if (System.currentTimeMillis() - start > 10000 || resultSet.getInt("complete") == 1){
+                        if (System.currentTimeMillis() - start > 600000 || resultSet.getInt("complete") == 1){
                             String dataJson = resultSet.getString("datajson");
                             if(dataJson == null) break;
                             final String setCompleteStatement = "UPDATE "+id+" SET complete = ? WHERE uuid = ?";
