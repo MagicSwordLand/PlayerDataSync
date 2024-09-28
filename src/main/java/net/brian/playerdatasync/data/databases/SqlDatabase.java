@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.UUID;
 
 
@@ -39,37 +40,63 @@ public abstract class SqlDatabase extends Database {
     @Override
     public <T> T getData(UUID uuid, Class<T> dataClass) throws Exception {
         String id = classMap.get(dataClass);
+        long timeoutMillis = 600_000; // 10 minutes
+        long startTime = System.currentTimeMillis();
+
         try (Connection connection = getConnection()) {
-            final String statement = "SELECT * FROM "+id+" WHERE uuid = ?";
-            try (PreparedStatement preparedStatement = connection.prepareStatement(statement)) {
-                preparedStatement.setString(1, uuid.toString());
-                final long start = System.currentTimeMillis();
-                while (true){
-                    try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                        if (!resultSet.next()) {
-                            break;
-                        }
-                        if (System.currentTimeMillis() - start > 600000 || resultSet.getInt("complete") == 1){
-                            String dataJson = resultSet.getString("datajson");
-                            if(dataJson == null) break;
-                            final String setCompleteStatement = "UPDATE "+id+" SET complete = ? WHERE uuid = ?";
-                            try (PreparedStatement preparedStatement2 = connection.prepareStatement(setCompleteStatement)){
-                                preparedStatement2.setInt(1, 0);
-                                preparedStatement.setString(2,uuid.toString());
-                                preparedStatement2.executeUpdate();
-                            }
-                            return gson.fromJson(dataJson,dataClass);
+            // Attempt to update and fetch data within the timeout period
+            while (System.currentTimeMillis() - startTime < timeoutMillis) {
+                if (attemptAcquireLock(connection, id, uuid)) {
+                    Optional<String> dataJsonOpt = fetchDataJson(connection, id, uuid);
+                    if (dataJsonOpt.isPresent()) {
+                        String datajson = dataJsonOpt.get();
+                        if (!datajson.isEmpty()) {
+                            return gson.fromJson(datajson, dataClass);
                         }
                     }
+                    break; // Exit if datajson is null or empty
                 }
-                T data;
-                if(PlayerData.class.isAssignableFrom(dataClass)){
-                    data = dataClass.getConstructor(UUID.class).newInstance(uuid);
-                }
-                else data = dataClass.newInstance();
-                setData(id,uuid,data, false);
-                return data;
             }
+
+            // If data was not fetched, create a new instance and set data
+            T data = instantiateDataClass(uuid, dataClass);
+            setData(id, uuid, data, false);
+            return data;
+        } catch (SQLException e) {
+            throw new Exception("Database operation failed", e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new Exception("Thread was interrupted", e);
+        }
+    }
+
+    private boolean attemptAcquireLock(Connection connection, String id, UUID uuid) throws SQLException {
+        String updateSQL = "UPDATE " + id + " SET complete=0 WHERE uuid=? AND complete=1";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(updateSQL)) {
+            preparedStatement.setString(1, uuid.toString());
+            int updated = preparedStatement.executeUpdate();
+            return updated == 1;
+        }
+    }
+
+    private Optional<String> fetchDataJson(Connection connection, String id, UUID uuid) throws SQLException {
+        String selectSQL = "SELECT datajson FROM " + id + " WHERE uuid=?";
+        try (PreparedStatement preparedStatement = connection.prepareStatement(selectSQL)) {
+            preparedStatement.setString(1, uuid.toString());
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    return Optional.ofNullable(resultSet.getString("datajson"));
+                }
+                return Optional.empty();
+            }
+        }
+    }
+
+    private <T> T instantiateDataClass(UUID uuid, Class<T> dataClass) throws Exception {
+        if (PlayerData.class.isAssignableFrom(dataClass)) {
+            return dataClass.getConstructor(UUID.class).newInstance(uuid);
+        } else {
+            return dataClass.getDeclaredConstructor().newInstance();
         }
     }
 
